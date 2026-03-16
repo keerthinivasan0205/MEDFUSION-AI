@@ -1,0 +1,17 @@
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.log
+*.h5
+backend/uploads/temp/*
+!backend/uploads/temp/.gitkeep
+backend/reports/*
+!backend/reports/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep
+.DS_Store
+*.db
