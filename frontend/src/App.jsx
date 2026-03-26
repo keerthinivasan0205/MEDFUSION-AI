@@ -127,7 +127,7 @@ function Login({ setToken, setUser }) {
   )
 }
 
-function Dashboard({ user, token, setToken, setUser, theme, setTheme }) {
+function Dashboard({ user, token, setToken, setUser, theme, setTheme, reports, setReports }) {
   const navigate = useNavigate()
   const [section, setSection] = useState('skin')
   const [file, setFile] = useState(null)
@@ -142,6 +142,12 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme }) {
     skin: '/api/prediction/skin',
     pneumonia: '/api/prediction/xray',
     fracture: '/api/prediction/fracture',
+  }
+
+  const sectionLabels = {
+    skin: 'Skin classification',
+    pneumonia: 'Pneumonia analysis',
+    fracture: 'Fracture detection',
   }
 
   const analyze = async () => {
@@ -211,6 +217,23 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme }) {
         setReportStatus('Report generated successfully.')
         setReportPath(data.report_path)
         setReportPathFilename(data.report_filename)
+
+        // Build a new report entry and persist it
+        const filename = data.report_filename || data.report_path?.replace(/\\/g, '/').split('/').pop() || ''
+        const newReport = {
+          id: `RPT-${Date.now()}`,
+          label: sectionLabels[section],
+          path: data.report_path,
+          filename,
+          status: 'Completed',
+          createdAt: new Date().toLocaleString(),
+        }
+
+        setReports((prev) => {
+          const updated = [newReport, ...prev]
+          localStorage.setItem('medfusion-reports', JSON.stringify(updated))
+          return updated
+        })
       } else {
         const errorText = data.error || data.msg || data.message || `Report generation failed with status ${res.status}`
 
@@ -253,7 +276,6 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme }) {
 
       <div className="dashboard-grid">
         <nav className="sidebar">
-          
           <button className={section === 'skin' ? 'active' : ''} onClick={() => setSection('skin')}>Skin Disease</button>
           <button className={section === 'pneumonia' ? 'active' : ''} onClick={() => setSection('pneumonia')}>Pneumonia</button>
           <button className={section === 'fracture' ? 'active' : ''} onClick={() => setSection('fracture')}>Bone Fracture</button>
@@ -346,16 +368,53 @@ function Profile({ user, setUser }) {
   )
 }
 
-function Reports() {
+function Reports({ reports, setReports }) {
+  const clearReports = () => {
+    setReports([])
+    localStorage.removeItem('medfusion-reports')
+  }
+
   return (
     <div className="reports-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <h2>Generated Reports</h2>
-        <Link to="/dashboard" style={{ textDecoration: 'none' }}>
-          <button className="action">Home</button>
-        </Link>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {reports.length > 0 && (
+            <button className="action" style={{ background: '#dc2626' }} onClick={clearReports}>
+              Clear All
+            </button>
+          )}
+          <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+            <button className="action">Home</button>
+          </Link>
+        </div>
       </div>
-      <div className="report-list"><div className="report-item"><strong>2303-01</strong> | Skin classification | <span>Completed</span></div><div className="report-item"><strong>2303-02</strong> | Pneumonia analysis | <span>Completed</span></div><div className="report-item"><strong>2303-03</strong> | Fracture detection | <span>Review needed</span></div></div>
+
+      {reports.length === 0 ? (
+        <p style={{ color: '#6b7280' }}>No reports generated yet. Go to the dashboard and click Generate.</p>
+      ) : (
+        <div className="report-list">
+          {reports.map((r) => (
+            <div className="report-item" key={r.id}>
+              <strong>{r.id}</strong> | {r.label} | {r.createdAt} |{' '}
+              <span style={{ color: r.status === 'Completed' ? '#059669' : '#d97706' }}>{r.status}</span>
+              {r.filename && (
+                <>
+                  {' '}|{' '}
+                  <a
+                    href={`${API_BASE}/api/report/download/${encodeURIComponent(r.filename)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#2563eb' }}
+                  >
+                    Download PDF
+                  </a>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -364,10 +423,13 @@ function App() {
   const storedUser = localStorage.getItem('medfusion-user')
   const storedToken = localStorage.getItem('medfusion-token')
   const storedTheme = localStorage.getItem('medfusion-theme') || 'light'
+  const storedReports = localStorage.getItem('medfusion-reports')
+
   const [user, setUser] = useState(storedUser ? JSON.parse(storedUser) : initialUser)
   const [token, setToken] = useState(storedToken || '')
   const [backendStatus, setBackendStatus] = useState('Checking...')
   const [theme, setTheme] = useState(storedTheme)
+  const [reports, setReports] = useState(storedReports ? JSON.parse(storedReports) : [])
 
   useEffect(() => {
     document.body.classList.remove('theme-light', 'theme-dark')
@@ -393,9 +455,23 @@ function App() {
       <Routes>
         <Route path="/" element={<Login setToken={setToken} setUser={setUser} />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/dashboard" element={<Dashboard user={user} token={token} setToken={setToken} setUser={setUser} theme={theme} setTheme={setTheme} />} />
+        <Route
+          path="/dashboard"
+          element={
+            <Dashboard
+              user={user}
+              token={token}
+              setToken={setToken}
+              setUser={setUser}
+              theme={theme}
+              setTheme={setTheme}
+              reports={reports}
+              setReports={setReports}
+            />
+          }
+        />
         <Route path="/dashboard/profile" element={<Profile user={user} setUser={setUser} />} />
-        <Route path="/dashboard/reports" element={<Reports />} />
+        <Route path="/dashboard/reports" element={<Reports reports={reports} setReports={setReports} />} />
       </Routes>
     </div>
   )
