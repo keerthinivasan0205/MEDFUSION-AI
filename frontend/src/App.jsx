@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname}:5000`
+
+// Defined before clearSession so the reference is valid
+const initialUser = {
+  name: 'MedFusion User',
+  email: '',
+  age: 25,
+  gender: 'Other',
+  phone: '',
+}
 
 function clearSession(setToken, setUser, navigate, messageSetter) {
   localStorage.removeItem('medfusion-token')
@@ -16,16 +25,21 @@ function clearSession(setToken, setUser, navigate, messageSetter) {
 function isAuthError(status, data) {
   if (!status) return false
   if (status === 401 || status === 422) return true
-  const msg = (data && (data.msg || data.message || data.error) || '').toLowerCase()
+  const msg = ((data && (data.msg || data.message || data.error)) || '').toLowerCase()
   return msg.includes('token') || msg.includes('authorization') || msg.includes('expired')
 }
 
-const initialUser = {
-  name: 'MedFusion User',
-  email: '',
-  age: 25,
-  gender: 'Other',
-  phone: '',
+function safeJsonParse(str, fallback) {
+  try {
+    return str ? JSON.parse(str) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function ProtectedRoute({ token, children }) {
+  if (!token) return <Navigate to="/" replace />
+  return children
 }
 
 function SignUp() {
@@ -95,10 +109,11 @@ function Login({ setToken, setUser }) {
       })
       const data = await res.json()
       if (res.ok) {
+        const userData = { ...initialUser, name: data.user?.name || 'MedFusion User', email: data.user?.email || form.email }
         localStorage.setItem('medfusion-token', data.access_token)
+        localStorage.setItem('medfusion-user', JSON.stringify(userData))
         setToken(data.access_token)
-        setUser({ ...initialUser, name: data.user?.name || 'MedFusion User', email: data.user?.email || form.email })
-        localStorage.setItem('medfusion-user', JSON.stringify({ ...initialUser, name: data.user?.name || 'MedFusion User', email: data.user?.email || form.email }))
+        setUser(userData)
         navigate('/dashboard')
       } else {
         setError(data.message || 'Login failed')
@@ -136,7 +151,7 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme, reports, s
   const [error, setError] = useState('')
   const [reportStatus, setReportStatus] = useState('')
   const [reportPath, setReportPath] = useState('')
-  const [reportFilename, setReportPathFilename] = useState('')
+  const [reportFilename, setReportFilename] = useState('')
 
   const endpointMap = {
     skin: '/api/prediction/skin',
@@ -210,15 +225,14 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme, reports, s
         data = await res.json()
       } catch {
         const text = await res.text().catch(() => '')
-        throw new Error(`Unexpected response format (${res.status}): ${text || 'empty body'})`)
+        throw new Error(`Unexpected response format (${res.status}): ${text || 'empty body'}`)
       }
 
       if (res.ok) {
         setReportStatus('Report generated successfully.')
         setReportPath(data.report_path)
-        setReportPathFilename(data.report_filename)
+        setReportFilename(data.report_filename)
 
-        // Build a new report entry and persist it
         const filename = data.report_filename || data.report_path?.replace(/\\/g, '/').split('/').pop() || ''
         const newReport = {
           id: `RPT-${Date.now()}`,
@@ -244,9 +258,9 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme, reports, s
 
         setReportStatus(errorText)
       }
-    } catch (error) {
-      console.error('Report generation request failed:', error)
-      setReportStatus(`Could not reach backend for report generation: ${error?.message || 'unknown error'}`)
+    } catch (err) {
+      console.error('Report generation request failed:', err)
+      setReportStatus(`Could not reach backend for report generation: ${err?.message || 'unknown error'}`)
     }
   }
 
@@ -305,7 +319,11 @@ function Dashboard({ user, token, setToken, setUser, theme, setTheme, reports, s
             <section className="reports report-sidebar">
               <h3>Report Generation</h3>
               <button className="action" onClick={generateReport}>Generate</button>
-              {reportStatus && <p className={reportStatus.includes('success') ? 'success-text' : 'error-text'}>{reportStatus}</p>}
+              {reportStatus && (
+                <p className={reportStatus.toLowerCase().includes('successfully') ? 'success-text' : 'error-text'}>
+                  {reportStatus}
+                </p>
+              )}
               {reportPath && (
                 <div style={{ marginTop: '8px' }}>
                   <p>Saved: <strong>{reportPath}</strong></p>
@@ -363,7 +381,7 @@ function Profile({ user, setUser }) {
         <div className="details-grid"><div><strong>Name</strong><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div><div><strong>Email</strong><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div><div><strong>Age</strong><input type="number" value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} /></div><div><strong>Gender</strong><select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}><option>Female</option><option>Male</option><option>Other</option></select></div><div><strong>Phone</strong><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div></div>
         <div style={{ marginTop: '12px' }}><button className="action" onClick={save}>Save profile</button> {saved && <span style={{ color: '#059669' }}>Saved!</span>}</div>
       </div>
-      <div className="details-card"><h3>Medical notes</h3><textarea style={{ width: '100%', minHeight: '100px', border: '1px solid #d1d5db', borderRadius: '8px', padding: '10px' }} value={form.notes || 'Add medical notes...'} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+      <div className="details-card"><h3>Medical notes</h3><textarea style={{ width: '100%', minHeight: '100px', border: '1px solid #d1d5db', borderRadius: '8px', padding: '10px' }} value={form.notes || ''} placeholder="Add medical notes..." onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
     </div>
   )
 }
@@ -420,16 +438,17 @@ function Reports({ reports, setReports }) {
 }
 
 function App() {
-  const storedUser = localStorage.getItem('medfusion-user')
-  const storedToken = localStorage.getItem('medfusion-token')
+  // Safe localStorage parsing — prevents crash on corrupted data
+  const storedUser = safeJsonParse(localStorage.getItem('medfusion-user'), initialUser)
+  const storedToken = localStorage.getItem('medfusion-token') || ''
   const storedTheme = localStorage.getItem('medfusion-theme') || 'light'
-  const storedReports = localStorage.getItem('medfusion-reports')
+  const storedReports = safeJsonParse(localStorage.getItem('medfusion-reports'), [])
 
-  const [user, setUser] = useState(storedUser ? JSON.parse(storedUser) : initialUser)
-  const [token, setToken] = useState(storedToken || '')
+  const [user, setUser] = useState(storedUser)
+  const [token, setToken] = useState(storedToken)
   const [backendStatus, setBackendStatus] = useState('Checking...')
   const [theme, setTheme] = useState(storedTheme)
-  const [reports, setReports] = useState(storedReports ? JSON.parse(storedReports) : [])
+  const [reports, setReports] = useState(storedReports)
 
   useEffect(() => {
     document.body.classList.remove('theme-light', 'theme-dark')
@@ -458,20 +477,30 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <Dashboard
-              user={user}
-              token={token}
-              setToken={setToken}
-              setUser={setUser}
-              theme={theme}
-              setTheme={setTheme}
-              reports={reports}
-              setReports={setReports}
-            />
+            <ProtectedRoute token={token}>
+              <Dashboard
+                user={user}
+                token={token}
+                setToken={setToken}
+                setUser={setUser}
+                theme={theme}
+                setTheme={setTheme}
+                reports={reports}
+                setReports={setReports}
+              />
+            </ProtectedRoute>
           }
         />
-        <Route path="/dashboard/profile" element={<Profile user={user} setUser={setUser} />} />
-        <Route path="/dashboard/reports" element={<Reports reports={reports} setReports={setReports} />} />
+        <Route path="/dashboard/profile" element={
+          <ProtectedRoute token={token}>
+            <Profile user={user} setUser={setUser} />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard/reports" element={
+          <ProtectedRoute token={token}>
+            <Reports reports={reports} setReports={setReports} />
+          </ProtectedRoute>
+        } />
       </Routes>
     </div>
   )

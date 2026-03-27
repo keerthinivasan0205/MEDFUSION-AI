@@ -1,5 +1,5 @@
 # Authentication routes
-import os
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app
 from app.extensions import bcrypt
 from flask_jwt_extended import (
@@ -12,22 +12,26 @@ from pymongo import MongoClient
 
 auth_bp = Blueprint("auth", __name__)
 
+_mongo_client = None
+
 
 def _get_mongo_db():
-    mongo_uri = current_app.config.get("MONGO_URI")
-    mongo_db_name = current_app.config.get("MONGO_DB")
-    client = MongoClient(mongo_uri)
-    return client[mongo_db_name]
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = MongoClient(current_app.config.get("MONGO_URI"))
+    return _mongo_client[current_app.config.get("MONGO_DB")]
 
 
 # ================= REGISTER =================
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"message": "Invalid JSON body"}), 400
 
-    name = data.get("name")
-    email = data.get("email")
-    password = data.get("password")
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
     role = data.get("role", "user")
 
     if not name or not email or not password:
@@ -46,7 +50,7 @@ def register():
         "email": email.lower(),
         "password": hashed_password,
         "role": role,
-        "created_at": os.getenv("DATE", "")
+        "created_at": datetime.now(timezone.utc),
     }
 
     user_collection.insert_one(user_doc)
@@ -57,10 +61,12 @@ def register():
 # ================= LOGIN =================
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"message": "Invalid JSON body"}), 400
 
-    email = data.get("email")
-    password = data.get("password")
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
 
     if not email or not password:
         return jsonify({"message": "Missing email/password"}), 400

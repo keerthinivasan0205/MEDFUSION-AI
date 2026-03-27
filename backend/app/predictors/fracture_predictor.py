@@ -38,7 +38,9 @@ class FracturePredictor:
 
         if prediction > 0.5:
             predicted_class = "abnormal"
+            confidence = float(prediction)
         else:
             predicted_class = "normal"
+            confidence = 1.0 - float(prediction)
 
         return predicted_class, confidence

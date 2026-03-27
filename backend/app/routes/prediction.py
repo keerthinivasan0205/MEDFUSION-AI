@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -13,17 +14,24 @@ from app.extensions import db
 
 prediction_bp = Blueprint("prediction", __name__)
 
-# Load models
+# Load models once at startup
 skin_predictor = SkinPredictor()
 xray_predictor = XrayPredictor()
 fracture_predictor = FracturePredictor()
+
+
+def _cleanup(file_path):
+    try:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+    except OSError:
+        pass
 
 
 # ---------------- SKIN PREDICTION ----------------
 @prediction_bp.route("/skin", methods=["POST"])
 @jwt_required()
 def predict_skin():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -32,7 +40,10 @@ def predict_skin():
     image_file = request.files["image"]
     file_path = save_file(image_file)
 
-    predicted_class, confidence, probabilities = skin_predictor.predict(file_path)
+    try:
+        predicted_class, confidence, probabilities = skin_predictor.predict(file_path)
+    finally:
+        _cleanup(file_path)
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -44,11 +55,7 @@ def predict_skin():
         recommendation = "Benign skin lesion detected."
 
     report_path = generate_medical_report(
-        user_id,
-        predicted_class,
-        confidence_percent,
-        risk_level,
-        recommendation
+        user_id, predicted_class, confidence_percent, risk_level, recommendation
     )
 
     prediction_record = PredictionHistory(
@@ -59,7 +66,6 @@ def predict_skin():
         risk_level=risk_level,
         report_path=report_path
     )
-
     db.session.add(prediction_record)
     db.session.commit()
 
@@ -78,7 +84,6 @@ def predict_skin():
 @prediction_bp.route("/xray", methods=["POST"])
 @jwt_required()
 def predict_xray():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -87,9 +92,13 @@ def predict_xray():
     image_file = request.files["image"]
     file_path = save_file(image_file)
 
-    predicted_class, confidence, gradcam_image, segmented_image = xray_predictor.predict(file_path)
+    try:
+        predicted_class, confidence, gradcam_image, segmented_image = xray_predictor.predict(file_path)
+    finally:
+        _cleanup(file_path)
 
-    confidence_percent = confidence
+    # Fix: confidence is already rounded in XrayPredictor; ensure it's a float
+    confidence_percent = round(float(confidence), 2)
 
     if predicted_class == "pneumonia":
         risk_level = "High" if confidence_percent > 70 else "Medium"
@@ -99,11 +108,7 @@ def predict_xray():
         recommendation = "No pneumonia detected."
 
     report_path = generate_medical_report(
-        user_id,
-        predicted_class,
-        confidence_percent,
-        risk_level,
-        recommendation
+        user_id, predicted_class, confidence_percent, risk_level, recommendation
     )
 
     prediction_record = PredictionHistory(
@@ -114,7 +119,6 @@ def predict_xray():
         risk_level=risk_level,
         report_path=report_path
     )
-
     db.session.add(prediction_record)
     db.session.commit()
 
@@ -134,7 +138,6 @@ def predict_xray():
 @prediction_bp.route("/fracture", methods=["POST"])
 @jwt_required()
 def predict_fracture():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -143,7 +146,10 @@ def predict_fracture():
     image_file = request.files["image"]
     file_path = save_file(image_file)
 
-    predicted_class, confidence = fracture_predictor.predict(file_path)
+    try:
+        predicted_class, confidence = fracture_predictor.predict(file_path)
+    finally:
+        _cleanup(file_path)
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -155,11 +161,7 @@ def predict_fracture():
         recommendation = "No bone abnormality detected."
 
     report_path = generate_medical_report(
-        user_id,
-        predicted_class,
-        confidence_percent,
-        risk_level,
-        recommendation
+        user_id, predicted_class, confidence_percent, risk_level, recommendation
     )
 
     prediction_record = PredictionHistory(
@@ -170,7 +172,6 @@ def predict_fracture():
         risk_level=risk_level,
         report_path=report_path
     )
-
     db.session.add(prediction_record)
     db.session.commit()
 
