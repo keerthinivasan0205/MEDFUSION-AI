@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import './App.css'
+import './styles.css'
 
 import { API_BASE, initialUser, safeJsonParse } from './utils/auth'
 import LoginPage from './pages/LoginPage'
