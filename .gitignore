@@ -7,6 +7,10 @@ __pycache__/
 .env
 *.log
 *.h5
+*.keras
+*.hdf5
+*.pb
+*.ckpt
 backend/uploads/temp/*
 !backend/uploads/temp/.gitkeep
 backend/reports/*
