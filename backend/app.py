@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from config import Config
 from app.extensions import db, jwt, bcrypt
 
@@ -7,6 +8,7 @@ from app.routes.auth import auth_bp
 from app.routes.prediction import prediction_bp
 from app.routes.history import history_bp
 from app.routes.report import report_bp
+from app.routes.admin import admin_bp
 
 
 def create_app():
@@ -14,6 +16,9 @@ def create_app():
 
     # Load configuration
     app.config.from_object(Config)
+
+    # Allow requests from React frontend
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
     # Initialize extensions
     db.init_app(app)
@@ -25,6 +30,7 @@ def create_app():
     app.register_blueprint(prediction_bp, url_prefix="/api/prediction")
     app.register_blueprint(history_bp, url_prefix="/api/history")
     app.register_blueprint(report_bp, url_prefix="/api/report")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
     return app
 

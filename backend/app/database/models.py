@@ -1,4 +1,3 @@
-# SQLAlchemy database models
 from app.extensions import db
 from datetime import datetime
 
@@ -12,15 +11,10 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
 
-    role = db.Column(db.String(20), default="user")  # user / doctor / admin
+    role = db.Column(db.String(20), default="user")
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def __repr__(self):
-        return f"<User {self.email}>"
-
-
-# ---------------- Prediction History Table ----------------
 
 class PredictionHistory(db.Model):
     __tablename__ = "prediction_history"
@@ -29,7 +23,7 @@ class PredictionHistory(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
-    disease_type = db.Column(db.String(50))  
+    disease_type = db.Column(db.String(50))
     predicted_class = db.Column(db.String(100))
 
     confidence = db.Column(db.Float)
@@ -39,8 +33,4 @@ class PredictionHistory(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # relationship with user
     user = db.relationship("User", backref="predictions")
-
-    def __repr__(self):
-        return f"<Prediction {self.predicted_class}>"

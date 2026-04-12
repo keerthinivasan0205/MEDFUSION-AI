@@ -1,4 +1,3 @@
-# Authentication routes
 from flask import Blueprint, request, jsonify
 from app.extensions import db, bcrypt
 from app.database.models import User
@@ -20,7 +19,9 @@ def register():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
-    role = data.get("role", "user")
+
+    # ❗ SECURITY: do NOT allow role from frontend
+    role = "user"
 
     if User.query.filter_by(email=email).first():
         return jsonify({"message": "Email already exists"}), 400
@@ -53,24 +54,24 @@ def login():
     if not user or not bcrypt.check_password_hash(user.password, password):
         return jsonify({"message": "Invalid credentials"}), 401
 
-    # ✅ FIXED HERE
     access_token = create_access_token(
-        identity=str(user.id),  # MUST be string
-        additional_claims={"role": user.role}  # store role separately
+        identity=str(user.id),
+        additional_claims={"role": user.role}
     )
 
     return jsonify({
         "message": "Login successful",
-        "access_token": access_token
+        "access_token": access_token,
+        "role": user.role   # ✅ return role to frontend
     }), 200
 
 
-# ================= PROTECTED ROUTE =================
+# ================= PROTECTED =================
 @auth_bp.route("/protected", methods=["GET"])
 @jwt_required()
 def protected():
-    user_id = get_jwt_identity()  # string now
-    claims = get_jwt()  # get extra claims
+    user_id = get_jwt_identity()
+    claims = get_jwt()
 
     return jsonify({
         "message": "Access granted",
