@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.predictors.skin_predictor import SkinPredictor
 from app.predictors.xray_predictor import XrayPredictor
 from app.predictors.fracture_predictor import FracturePredictor
-from app.predictors.auto_predictor import AutoPredictor  # ✅ NEW
+from app.predictors.auto_predictor import AutoPredictor
 
 from app.utils.file_handler import save_file
 from app.utils.pdf_generator import generate_medical_report
@@ -14,11 +14,35 @@ from app.extensions import db
 
 prediction_bp = Blueprint("prediction", __name__)
 
-# ================= LOAD MODELS =================
-skin_predictor = SkinPredictor()
-xray_predictor = XrayPredictor()
-fracture_predictor = FracturePredictor()
-auto_predictor = AutoPredictor()  # ✅ NEW
+# ================= LAZY LOAD MODELS =================
+_skin_predictor = None
+_xray_predictor = None
+_fracture_predictor = None
+_auto_predictor = None
+
+def get_skin_predictor():
+    global _skin_predictor
+    if _skin_predictor is None:
+        _skin_predictor = SkinPredictor()
+    return _skin_predictor
+
+def get_xray_predictor():
+    global _xray_predictor
+    if _xray_predictor is None:
+        _xray_predictor = XrayPredictor()
+    return _xray_predictor
+
+def get_fracture_predictor():
+    global _fracture_predictor
+    if _fracture_predictor is None:
+        _fracture_predictor = FracturePredictor()
+    return _fracture_predictor
+
+def get_auto_predictor():
+    global _auto_predictor
+    if _auto_predictor is None:
+        _auto_predictor = AutoPredictor()
+    return _auto_predictor
 
 
 # =========================================================
@@ -35,7 +59,7 @@ def predict_skin():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence, probabilities = skin_predictor.predict(file_path)
+    predicted_class, confidence, probabilities = get_skin_predictor().predict(file_path)
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -85,7 +109,7 @@ def predict_xray():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence, gradcam, segmented = xray_predictor.predict(file_path)
+    predicted_class, confidence, gradcam, segmented = get_xray_predictor().predict(file_path)
 
     confidence_percent = confidence
 
@@ -136,7 +160,7 @@ def predict_fracture():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence = fracture_predictor.predict(file_path)
+    predicted_class, confidence = get_fracture_predictor().predict(file_path)
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -172,7 +196,7 @@ def predict_fracture():
 
 
 # =========================================================
-# ---------------- AUTO DETECTION (🔥 MAIN FEATURE) ----------------
+# ---------------- AUTO DETECTION ----------------
 # =========================================================
 @prediction_bp.route("/auto", methods=["POST"])
 @jwt_required()
@@ -185,21 +209,18 @@ def predict_auto():
 
     file_path = save_file(request.files["image"])
 
-    # 🔥 STEP 1: Detect image type
-    detected_type, detect_conf = auto_predictor.predict(file_path)
-
-    # 🔥 STEP 2: Route to correct model
+    detected_type, detect_conf = get_auto_predictor().predict(file_path)
 
     if detected_type == "skin":
-        predicted_class, confidence, _ = skin_predictor.predict(file_path)
+        predicted_class, confidence, _ = get_skin_predictor().predict(file_path)
         disease_type = "skin"
 
     elif detected_type == "chest_xray":
-        predicted_class, confidence, _, _ = xray_predictor.predict(file_path)
+        predicted_class, confidence, _, _ = get_xray_predictor().predict(file_path)
         disease_type = "pneumonia"
 
     elif detected_type == "bone_xray":
-        predicted_class, confidence = fracture_predictor.predict(file_path)
+        predicted_class, confidence = get_fracture_predictor().predict(file_path)
         disease_type = "fracture"
 
     else:
@@ -207,7 +228,6 @@ def predict_auto():
 
     confidence_percent = round(confidence * 100, 2)
 
-    # Risk logic (generic)
     risk_level = "High" if confidence_percent > 70 else "Low"
 
     report_path = generate_medical_report(
