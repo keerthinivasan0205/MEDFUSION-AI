@@ -17,8 +17,8 @@ def create_app():
     # Load configuration
     app.config.from_object(Config)
 
-    # Allow requests from React frontend
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
+    # Allow all origins (change later for production security)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     # Initialize extensions
     db.init_app(app)
@@ -35,14 +35,20 @@ def create_app():
     return app
 
 
+# Create app instance
 app = create_app()
 
 
-# Create database tables
+# Create database tables (only if DB is connected)
 with app.app_context():
-    from app.database import models
-    db.create_all()
+    try:
+        from app.database import models
+        db.create_all()
+        print("✅ Database connected & tables created")
+    except Exception as e:
+        print("❌ Database connection failed:", e)
 
 
+# Local development only
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=5000)
