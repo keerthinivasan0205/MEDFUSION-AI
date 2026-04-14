@@ -40,29 +40,5 @@ with app.app_context():
         print("❌ Database connection failed:", e)
 
 
-def preload_models():
-    import threading
-    def _load():
-        try:
-            from app.routes.prediction import get_skin_predictor, get_xray_predictor, get_fracture_predictor, get_auto_predictor
-            print("⏳ Preloading ML models in background...")
-            get_skin_predictor()
-            print("✅ Skin model loaded")
-            get_xray_predictor()
-            print("✅ Xray model loaded")
-            get_fracture_predictor()
-            print("✅ Fracture model loaded")
-            get_auto_predictor()
-            print("✅ Auto model loaded")
-            print("🚀 All models ready")
-        except Exception as e:
-            print("❌ Model preload failed:", e)
-
-    t = threading.Thread(target=_load, daemon=True)
-    t.start()
-
-
-preload_models()
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

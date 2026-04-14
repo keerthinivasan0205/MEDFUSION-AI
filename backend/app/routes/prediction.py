@@ -14,36 +14,6 @@ from app.extensions import db
 
 prediction_bp = Blueprint("prediction", __name__)
 
-# ================= LAZY LOAD MODELS =================
-_skin_predictor = None
-_xray_predictor = None
-_fracture_predictor = None
-_auto_predictor = None
-
-def get_skin_predictor():
-    global _skin_predictor
-    if _skin_predictor is None:
-        _skin_predictor = SkinPredictor()
-    return _skin_predictor
-
-def get_xray_predictor():
-    global _xray_predictor
-    if _xray_predictor is None:
-        _xray_predictor = XrayPredictor()
-    return _xray_predictor
-
-def get_fracture_predictor():
-    global _fracture_predictor
-    if _fracture_predictor is None:
-        _fracture_predictor = FracturePredictor()
-    return _fracture_predictor
-
-def get_auto_predictor():
-    global _auto_predictor
-    if _auto_predictor is None:
-        _auto_predictor = AutoPredictor()
-    return _auto_predictor
-
 
 # =========================================================
 # ---------------- SKIN PREDICTION ----------------
@@ -51,7 +21,6 @@ def get_auto_predictor():
 @prediction_bp.route("/skin", methods=["POST"])
 @jwt_required()
 def predict_skin():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -59,7 +28,9 @@ def predict_skin():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence, probabilities = get_skin_predictor().predict(file_path)
+    predictor = SkinPredictor()
+    predicted_class, confidence, probabilities = predictor.predict(file_path)
+    del predictor
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -101,7 +72,6 @@ def predict_skin():
 @prediction_bp.route("/xray", methods=["POST"])
 @jwt_required()
 def predict_xray():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -109,7 +79,9 @@ def predict_xray():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence, gradcam, segmented = get_xray_predictor().predict(file_path)
+    predictor = XrayPredictor()
+    predicted_class, confidence, gradcam, segmented = predictor.predict(file_path)
+    del predictor
 
     confidence_percent = confidence
 
@@ -152,7 +124,6 @@ def predict_xray():
 @prediction_bp.route("/fracture", methods=["POST"])
 @jwt_required()
 def predict_fracture():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -160,7 +131,9 @@ def predict_fracture():
 
     file_path = save_file(request.files["image"])
 
-    predicted_class, confidence = get_fracture_predictor().predict(file_path)
+    predictor = FracturePredictor()
+    predicted_class, confidence = predictor.predict(file_path)
+    del predictor
 
     confidence_percent = round(confidence * 100, 2)
 
@@ -201,7 +174,6 @@ def predict_fracture():
 @prediction_bp.route("/auto", methods=["POST"])
 @jwt_required()
 def predict_auto():
-
     user_id = get_jwt_identity()
 
     if "image" not in request.files:
@@ -209,25 +181,32 @@ def predict_auto():
 
     file_path = save_file(request.files["image"])
 
-    detected_type, detect_conf = get_auto_predictor().predict(file_path)
+    auto = AutoPredictor()
+    detected_type, detect_conf = auto.predict(file_path)
+    del auto
 
     if detected_type == "skin":
-        predicted_class, confidence, _ = get_skin_predictor().predict(file_path)
+        predictor = SkinPredictor()
+        predicted_class, confidence, _ = predictor.predict(file_path)
+        del predictor
         disease_type = "skin"
 
     elif detected_type == "chest_xray":
-        predicted_class, confidence, _, _ = get_xray_predictor().predict(file_path)
+        predictor = XrayPredictor()
+        predicted_class, confidence, _, _ = predictor.predict(file_path)
+        del predictor
         disease_type = "pneumonia"
 
     elif detected_type == "bone_xray":
-        predicted_class, confidence = get_fracture_predictor().predict(file_path)
+        predictor = FracturePredictor()
+        predicted_class, confidence = predictor.predict(file_path)
+        del predictor
         disease_type = "fracture"
 
     else:
         return jsonify({"error": "Unknown image type"}), 400
 
     confidence_percent = round(confidence * 100, 2)
-
     risk_level = "High" if confidence_percent > 70 else "Low"
 
     report_path = generate_medical_report(
