@@ -66,6 +66,26 @@ def login():
     }), 200
 
 
+# ================= MAKE ADMIN (TEMPORARY - REMOVE AFTER USE) =================
+@auth_bp.route("/make-admin", methods=["POST"])
+def make_admin():
+    data = request.get_json()
+    secret = data.get("secret")
+    email = data.get("email")
+
+    if secret != "MEDFUSION_ADMIN_2026":
+        return jsonify({"message": "Unauthorized"}), 401
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    user.role = "admin"
+    db.session.commit()
+
+    return jsonify({"message": f"{email} is now admin"}), 200
+
+
 # ================= PROTECTED =================
 @auth_bp.route("/protected", methods=["GET"])
 @jwt_required()
