@@ -3,7 +3,6 @@ from flask_cors import CORS
 from config import Config
 from app.extensions import db, jwt, bcrypt
 
-# Blueprints
 from app.routes.auth import auth_bp
 from app.routes.prediction import prediction_bp
 from app.routes.history import history_bp
@@ -13,19 +12,14 @@ from app.routes.admin import admin_bp
 
 def create_app():
     app = Flask(__name__)
-
-    # Load configuration
     app.config.from_object(Config)
 
-    # Allow all origins (change later for production security)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-    # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
     bcrypt.init_app(app)
 
-    # Register blueprints
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(prediction_bp, url_prefix="/api/prediction")
     app.register_blueprint(history_bp, url_prefix="/api/history")
@@ -35,11 +29,8 @@ def create_app():
     return app
 
 
-# Create app instance
 app = create_app()
 
-
-# Create database tables (only if DB is connected)
 with app.app_context():
     try:
         from app.database import models
@@ -49,6 +40,29 @@ with app.app_context():
         print("❌ Database connection failed:", e)
 
 
-# Local development only
+def preload_models():
+    import threading
+    def _load():
+        try:
+            from app.routes.prediction import get_skin_predictor, get_xray_predictor, get_fracture_predictor, get_auto_predictor
+            print("⏳ Preloading ML models in background...")
+            get_skin_predictor()
+            print("✅ Skin model loaded")
+            get_xray_predictor()
+            print("✅ Xray model loaded")
+            get_fracture_predictor()
+            print("✅ Fracture model loaded")
+            get_auto_predictor()
+            print("✅ Auto model loaded")
+            print("🚀 All models ready")
+        except Exception as e:
+            print("❌ Model preload failed:", e)
+
+    t = threading.Thread(target=_load, daemon=True)
+    t.start()
+
+
+preload_models()
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
