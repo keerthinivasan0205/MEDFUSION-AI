@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import os
+import base64
 
 from app.utils.gradcam import generate_gradcam, overlay_heatmap
 from app.utils.lung_segmentation import segment_lungs
@@ -59,6 +60,10 @@ class XrayPredictor:
 
         overlay_heatmap(image_path, heatmap, gradcam_path)
 
+        # Convert Grad-CAM image to base64
+        with open(gradcam_path, "rb") as img_file:
+            gradcam_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+
         # ---------- LUNG SEGMENTATION (ONLY FOR VISUALIZATION) ----------
         try:
             segmented_path = segment_lungs(self.seg_model, image_path)
@@ -66,4 +71,4 @@ class XrayPredictor:
             print("Segmentation error:", e)
             segmented_path = image_path
 
-        return predicted_class, confidence, gradcam_path, segmented_path
+        return predicted_class, confidence, gradcam_base64, segmented_path
