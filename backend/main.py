@@ -14,7 +14,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    CORS(app, resources={r"/api/*": {"origins": "*"}, r"/report/*": {"origins": "*"}})
 
     db.init_app(app)
     jwt.init_app(app)
@@ -23,7 +23,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(prediction_bp, url_prefix="/api/prediction")
     app.register_blueprint(history_bp, url_prefix="/api/history")
-    app.register_blueprint(report_bp, url_prefix="/api/report")
+    app.register_blueprint(report_bp, url_prefix="/report")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
     return app

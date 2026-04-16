@@ -1,21 +1,10 @@
 services:
-  # 🔹 Backend (Python API)
-  - type: web
-    name: MEDFUSION-AI
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.13
-
-  # 🔹 Frontend (React Static Site)
+  # 🔹 Frontend (React Static Site) - Render
   - type: web
     name: MEDFUSION-AI-FRONTEND
     env: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && VITE_API_URL=https://calm-enjoyment-production.up.railway.app/api npm run build
     staticPublishPath: dist
     routes:
       - type: rewrite

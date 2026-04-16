@@ -9,7 +9,7 @@ def report_health():
     return jsonify({
         "status": "Report route working successfully!"
     })
-            
+
 
 @report_bp.route("/<filename>", methods=["GET"])
 def download_report(filename):
@@ -23,12 +23,34 @@ def download_report(filename):
         if ".." in filename or "/" in filename or "\\" in filename:
             return jsonify({"error": "Invalid filename"}), 400
         
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "reports")
-        file_path = os.path.join(reports_dir, filename)
+        # Try to find reports directory starting from current app root
+        base_paths = [
+            os.path.join(current_app.root_path, "..", "..", "reports"),  # For app instance
+            os.path.join(os.getcwd(), "reports"),  # Current working directory
+            "/app/reports",  # Render.com deployment path
+            "/tmp/reports",  # Railways/temp storage
+        ]
         
-        # Verify the file exists and is in the reports directory
-        if not os.path.exists(file_path) or not os.path.abspath(file_path).startswith(os.path.abspath(reports_dir)):
+        file_path = None
+        reports_dir = None
+        
+        for path in base_paths:
+            abs_path = os.path.abspath(path)
+            if os.path.exists(abs_path):
+                potential_file = os.path.join(abs_path, filename)
+                if os.path.exists(potential_file):
+                    file_path = potential_file
+                    reports_dir = abs_path
+                    break
+        
+        if not file_path:
+            print(f"Report not found: {filename}")
+            print(f"Searched paths: {base_paths}")
             return jsonify({"error": "Report not found"}), 404
+        
+        # Final security check
+        if not os.path.abspath(file_path).startswith(os.path.abspath(reports_dir)):
+            return jsonify({"error": "Invalid file path"}), 400
         
         return send_file(
             file_path,

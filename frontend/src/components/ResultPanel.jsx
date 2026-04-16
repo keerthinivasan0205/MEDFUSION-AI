@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle, Activity, FileDown, Brain } from 'lucide-react';
+import api from '../services/api';
 
 const riskConfig = {
   High:   { color: '#ff3366', bg: 'rgba(255,51,102,0.1)',  border: 'rgba(255,51,102,0.3)',  icon: AlertTriangle, label: 'HIGH RISK' },
@@ -7,14 +8,16 @@ const riskConfig = {
   Low:    { color: '#00ff88', bg: 'rgba(0,255,136,0.1)',   border: 'rgba(0,255,136,0.3)',   icon: CheckCircle,   label: 'LOW RISK' },
 };
 
-// ✅ Build correct download URL from report_path like "reports/medical_report_1_xxx.pdf"
+// ✅ Build correct download URL using API base URL
 function buildReportUrl(reportPath) {
   if (!reportPath) return null;
   // Normalize backslashes → forward slashes
   const normalized = reportPath.replace(/\\/g, '/');
   // Extract just the filename
   const filename = normalized.split('/').pop();
-  return `http://127.0.0.1:5000/reports/${filename}`;
+  // Use the same base URL as the API
+  const apiBaseUrl = api.defaults.baseURL.replace('/api', '');
+  return `${apiBaseUrl}/report/${filename}`;
 }
 
 export default function ResultPanel({ result, reportPath }) {

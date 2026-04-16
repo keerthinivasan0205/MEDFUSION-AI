@@ -75,15 +75,21 @@ export default function PredictionPage({ title, description, endpoint, icon: Ico
 
       <ResultCard result={result} />
 
-      {result?.report_path && (
-        <a
-          href={`http://127.0.0.1:5000/${result.report_path}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
-          Download PDF Report
-        </a>
-      )}
+      {result?.report_path && (() => {
+        const normalized = result.report_path.replace(/\\/g, '/');
+        const filename = normalized.split('/').pop();
+        const apiBaseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://127.0.0.1:5000';
+        const downloadUrl = `${apiBaseUrl}/report/${filename}`;
+        return (
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
+            Download PDF Report
+          </a>
+        );
+      })()}
     </div>
   );
 }

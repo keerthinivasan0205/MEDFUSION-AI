@@ -93,13 +93,19 @@ export default function History() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      {h.report_path ? (
-                        <a href={`http://127.0.0.1:5000/${h.report_path}`} target="_blank" rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-70"
-                          style={{ color: '#00d4ff' }}>
-                          <Download className="w-3.5 h-3.5" /> PDF
-                        </a>
-                      ) : <span className="text-slate-700">—</span>}
+                      {h.report_path ? (() => {
+                        const normalized = h.report_path.replace(/\\/g, '/');
+                        const filename = normalized.split('/').pop();
+                        const apiBaseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://127.0.0.1:5000';
+                        const downloadUrl = `${apiBaseUrl}/report/${filename}`;
+                        return (
+                          <a href={downloadUrl} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-70"
+                            style={{ color: '#00d4ff' }}>
+                            <Download className="w-3.5 h-3.5" /> PDF
+                          </a>
+                        );
+                      })() : <span className="text-slate-700">—</span>}
                     </td>
                   </motion.tr>
                 );
